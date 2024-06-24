@@ -12,7 +12,7 @@ const TabIcon = ({ icon, color, name, focused }) => {
         tintColor={color}
         className="w-6 h-6"
       />
-      <Text className={`${focused ? 'font-psemibold' :'font-pregular'} text-xs`}>
+      <Text className={`${focused ? 'font-psemibold' :'font-pregular'} text-xs`} style={{color:color}}>
         {name}
       </Text>
     </View>
@@ -24,7 +24,15 @@ const TabsLayout = () => {
   <>
     <Tabs
       screenOptions={{
-        tabBarShowLabel:false
+        tabBarShowLabel:false,
+        tabBarActiveTintColor:'#FFA001',
+        tabBarInactiveTintColor:'#CDCDE0',
+        tabBarStyle:{
+          backgroundColor:'#161622',
+          borderTopWidth:1,
+          borderTopColor:'#232533',
+          height:84,
+        }
       }}
     >
       <Tabs.Screen
@@ -49,7 +57,7 @@ const TabsLayout = () => {
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
-              icon={icons.home}
+              icon={icons.booking}
               color={color}
               name="Booking"
               focused={focused}
@@ -64,7 +72,7 @@ const TabsLayout = () => {
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
-              icon={icons.services}
+              icon={icons.customer}
               color={color}
               name="Services"
               focused={focused}
@@ -79,7 +87,7 @@ const TabsLayout = () => {
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
-              icon={icons.home}
+              icon={icons.contact}
               color={color}
               name="Contact Us"
               focused={focused}
@@ -94,7 +102,7 @@ const TabsLayout = () => {
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
-              icon={icons.home}
+              icon={icons.about}
               color={color}
               name="About Us"
               focused={focused}

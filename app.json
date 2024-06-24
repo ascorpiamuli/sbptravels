@@ -20,8 +20,9 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+        
       },
-      "package": "com.jsm.sora"
+      "package": "com.scorpio.travels"
     },
     "web": {
       "favicon": "./assets/favicon.png"

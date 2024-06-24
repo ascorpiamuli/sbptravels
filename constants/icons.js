@@ -11,8 +11,19 @@ import logout from "../assets/icons/logout.png";
 import eyeHide from "../assets/icons/eye-hide.png";
 import eye from "../assets/icons/eye.png";
 import play from "../assets/icons/play.png";
+import vehicle from "../assets/icons/vehicle.png";
+import customer from "../assets/icons/customer.png";
+import about from "../assets/icons/about.png";
+import booking from "../assets/icons/booking.png";
+import contact from "../assets/icons/contact.png";
+import caricon from "../assets/icons/caricon.png"
+import motoricon from "../assets/icons/motoricon.png"
+import lorryicon from "../assets/icons/lorryicon.png"
 
 export default {
+  caricon,
+  lorryicon,
+  motoricon,
   play,
   bookmark,
   home,
@@ -26,4 +37,9 @@ export default {
   logout,
   eyeHide,
   eye,
+  vehicle,
+  customer,
+  about,
+  booking,
+  contact,
 };
