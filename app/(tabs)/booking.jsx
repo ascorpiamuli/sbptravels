@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, FlatList, View, Image, Text, TextInput, TouchableOpacity, ScrollView,TimePickerAndroid, Alert, Platform } from 'react-native';
+import { StyleSheet, FlatList, View, Image, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from "expo-status-bar";
+import { getBookingDetails, createBooking, fetchDriverDetails } from '../../lib/appwrite';
 import { icons } from '../../constants';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-
+import axios from 'axios';
+import Geolocation from 'react-native-geolocation-service';
+import { initiatePayment } from '../../lib/payments';
+import { ActivityIndicator } from 'react-native';
 
 const Booking = () => {
+  const [driver, setDriver] = useState(null);
+  const [origin, setOrigin] = useState('');
   const [selectedBookingType, setSelectedBookingType] = useState(null);
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [selectedDriver, setSelectedDriver] = useState(null);
@@ -14,23 +19,45 @@ const Booking = () => {
   const [departureDate, setDepartureDate] = useState(new Date());
   const [departureTime, setDepartureTime] = useState('');
   const [distance, setDistance] = useState('');
-  const [condition, setCondition] = useState('');
   const [amountPerKm, setAmountPerKm] = useState('');
   const [driverProficiencyBonus, setDriverProficiencyBonus] = useState('');
-  const [loadFee, setLoadFee] = useState('');
   const [commission, setCommission] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
-  const [totalCommission, setTotalCommission] = useState('');
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState({
     day: new Date().getDate(),
-    month: new Date().getMonth() + 1, // Month is zero-based, so we add 1
+    month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
   });
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedTime, setSelectedTime] = useState({
     hours: new Date().getHours(),
     minutes: new Date().getMinutes(),
   });
+  const [bookingHistory, setBookingHistory] = useState([]);
+  const [activeDrivers, setActiveDrivers] = useState([]);
+
+  useEffect(() => {
+    fetchBookingHistory();
+    fetchDriverData();
+  }, []);
+
+  const handlePayment = async () => {
+    if (!phoneNumber || !totalAmount) {
+      Alert.alert('Error', 'Please enter both phone number and amount.');
+      return;
+    }
+
+    try {
+      const response = await initiatePayment(phoneNumber, totalAmount);
+      Alert.alert('Success', 'Payment initiated successfully.');
+      console.log('Payment response:', response);
+    } catch (error) {
+      Alert.alert('Error', 'Please enter Phone in 254 Format.');
+      console.error('Payment error:', error);
+    }
+  };
 
   const showDatePicker = () => {
     setDatePickerVisibility(true);
@@ -53,48 +80,68 @@ const Booking = () => {
     setSelectedDate(selectedDateTime);
     setSelectedTime(selectedTime);
     hideDatePicker();
-  }
-  const [activeDrivers, setActiveDrivers] = useState([
-    { id: '1', name: 'John Doe', status: 'Free', image: icons.profile, vehicleRegNumber: 'ABC 123', proficiency: 'Expert', successRate: '95%', phoneNumber: '+1234567890' },
-    { id: '2', name: 'Jane Smith', status: 'On Job', image: icons.profile, vehicleRegNumber: 'XYZ 456', proficiency: 'Intermediate', successRate: '85%', phoneNumber: '+1987654321' },
-    { id: '3', name: 'Bob Brown', status: 'Free', image: icons.profile, vehicleRegNumber: 'DEF 789', proficiency: 'Beginner', successRate: '70%', phoneNumber: '+1122334455' },
-  ]);
-
-  useEffect(() => {
-    // Simulate initial data load or API call on component mount
-    fetchDriverData();
-  }, []);
-
-  const fetchDriverData = async () => {
-    // Simulate fetching driver data from an API
-    // This function can be replaced with actual API calls
-    // For demonstration purposes, setting a timeout to simulate async behavior
-    setTimeout(() => {
-      // Set initial driver data
-      setActiveDrivers([
-        { id: '1', name: 'John Doe', status: 'Free', image: icons.profile, vehicleRegNumber: 'ABC 123', proficiency: 'Expert', successRate: '95%', phoneNumber: '+1234567890' },
-        { id: '2', name: 'Jane Smith', status: 'On Job', image: icons.profile, vehicleRegNumber: 'XYZ 456', proficiency: 'Intermediate', successRate: '85%', phoneNumber: '+1987654321' },
-        { id: '3', name: 'Bob Brown', status: 'Free', image: icons.profile, vehicleRegNumber: 'DEF 789', proficiency: 'Beginner', successRate: '70%', phoneNumber: '+1122334455' },
-      ]);
-    }, 1000); // Simulating a delay of 1 second
   };
 
-  const fetchDestinationDetails = async () => {
-    // Simulate fetching destination details from a Maps API
-    // For demonstration purposes, using a timeout to mimic async behavior
-    setTimeout(() => {
-      setDistance('15 km');
-      setCondition('Good');
-      setAmountPerKm('Shs 2');
-      setDriverProficiencyBonus('Shs 5');
-      setLoadFee('Shs 20');
-      setCommission('10');
+  const fetchBookingHistory = async () => {
+    try {
+      const bookings = await getBookingDetails();
+      setBookingHistory(bookings);
+    } catch (error) {
+      console.error('Error fetching booking history:', error);
+      Alert.alert('Error', 'Failed to fetch booking history.');
+    }
+  };
 
-      // Calculate totals
-      const amount = parseFloat(distance) * parseFloat(amountPerKm.replace('Shs ', ''));
+  const fetchDriverData = async () => {
+    try {
+      const details = await fetchDriverDetails();
+      setActiveDrivers(details);
+    } catch (error) {
+      console.error('Error fetching driver data:', error);
+      setActiveDrivers([]);
+      Alert.alert('Error', 'Failed to fetch data.');
+    }
+  };
 
-      setTotalAmount(amount.toFixed(2));
-    }, 1500); // Simulating a delay of 1.5 seconds
+  const GOOGLE_MAPS_API_KEY = 'vNfZNGG4769cvzyI4NwTex31L0ksAHDO088kHWwWvSBaEKaIP5tMUyDrIVAUC0Or';
+
+  const fetchDestinationDetails = async (origin, destination) => {
+    try {
+      console.log('Origin:', origin);
+      console.log('Destination:', destination);
+
+      const distanceResponse = await axios.get('https://api.distancematrix.ai/maps/api/distancematrix/json', {
+        params: {
+          origins: origin,
+          destinations: destination,
+          key: GOOGLE_MAPS_API_KEY,
+        },
+      });
+
+      const distanceData = distanceResponse.data;
+      console.log('Distance Matrix API Response:', distanceData);
+
+      if (distanceData.rows[0].elements[0].status === 'OK') {
+        const distance = distanceData.rows[0].elements[0].distance.text;
+        setDistance(distance);
+
+        const amountPerKm = 'Shs 17';
+        const profbonus = 'Shs 10';
+        setAmountPerKm(amountPerKm);
+        setDriverProficiencyBonus(profbonus);
+        const commission = 'Shs 10';
+        setCommission(commission);
+
+        let amount = (parseFloat(distance.replace(' km', '')) * parseFloat(amountPerKm.replace('Shs ', ''))) * 1.1 + parseFloat(profbonus.replace('Shs ', ''));
+        console.log(amount);
+        setTotalAmount(amount.toFixed(2));
+      } else {
+        Alert.alert('Error', 'Could not fetch distance data');
+      }
+    } catch (error) {
+      console.error('Error fetching destination details:', error);
+      Alert.alert('Error', 'Failed to fetch destination details.');
+    }
   };
 
   const handleBookingTypeChange = (type) => {
@@ -103,13 +150,10 @@ const Booking = () => {
     setSelectedDriver(null);
     setDestination('');
     setDistance('');
-    setCondition('');
     setAmountPerKm('');
     setDriverProficiencyBonus('');
-    setLoadFee('');
     setCommission('');
     setTotalAmount('');
-    setTotalCommission('');
   };
 
   const handleUnitChange = (unit) => {
@@ -118,164 +162,329 @@ const Booking = () => {
   };
 
   const handleDriverSelection = (driver) => {
+    setDriver(driver);
     setSelectedDriver(driver);
   };
 
-  const handleSearch = () => {
-    fetchDestinationDetails();
-  };
-
-  const handleDateChange = (date) => {
-    setDepartureDate(date);
-  };
-;
-  
-
-  const handleSubmit = () => {
-    if (!selectedDriver || !destination || !totalAmount || !totalCommission || !departureTime) {
-      Alert.alert('Incomplete Information', 'Please select a driver, enter destination, set departure time, and search before submitting.');
+  const handleSearch = async () => {
+    if (!origin || !destination) {
+      Alert.alert('Incomplete Information', 'Please enter both origin and destination.');
       return;
     }
 
-    // Example submission logic (replace with actual backend integration)
-    const bookingDetails = {
-      selectedBookingType,
-      selectedUnit,
-      selectedDriver,
-      destination,
-      departureDate,
-      departureTime,
-      totalAmount,
-      totalCommission,
-    };
+    setIsLoading(true);
+    await fetchDestinationDetails(origin, destination);
+    setIsLoading(false);
+  };
 
-    console.log('Booking Details:', bookingDetails);
-    // Simulated submission success alert
-    Alert.alert('Booking Submitted', 'Your booking details have been successfully submitted.');
+  const dateFormatting = `${selectedDate.day}/${selectedDate.month}/${selectedDate.year} At ${selectedTime.hours}:${selectedTime.minutes}`;
+  const handleSubmit = async () => {
+    const paymentSuccess = await handlePayment();
+    if (!paymentSuccess) {
+      return;
+    }
+    try {
+      const bookingDetails = {
+        Driver: driver.drname,
+        time: dateFormatting,
+        destination: destination,
+        paymentDetails: parseFloat(totalAmount),
+      };
+      console.log(bookingDetails);
+
+      await createBooking(bookingDetails);
+      Alert.alert('Success', 'Booking created successfully.');
+
+      setOrigin('');
+      setDestination('');
+      setSelectedDriver(null);
+      setSelectedBookingType(null);
+      setSelectedUnit(null);
+      setDepartureDate(new Date());
+      setDepartureTime('');
+      setDistance('');
+      setAmountPerKm('');
+      setDriverProficiencyBonus('');
+      setCommission('');
+      setTotalAmount('');
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      Alert.alert('Error', 'Failed to create booking.');
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
-        <View style={styles.header}>
-          <Text style={styles.headerText}>Bookings</Text>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.bookingTypeContainer}>
+          <TouchableOpacity
+            style={[
+              styles.bookingTypeButton,
+              selectedBookingType === 'travel' && styles.selectedButton,
+            ]}
+            onPress={() => handleBookingTypeChange('travel')}
+          >
+            <Text
+              style={[
+                styles.bookingTypeButtonText,
+                selectedBookingType === 'travel' && styles.selectedButtonText,
+              ]}
+            >
+              Book Travel
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.bookingTypeButton,
+              selectedBookingType === 'goods' && styles.selectedButton,
+            ]}
+            onPress={() => handleBookingTypeChange('goods')}
+          >
+            <Text
+              style={[
+                styles.bookingTypeButtonText,
+                selectedBookingType === 'goods' && styles.selectedButtonText,
+              ]}
+            >
+              Book Goods
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.bookingTypeButton,
+              selectedBookingType === 'history' && styles.selectedButton,
+            ]}
+            onPress={() => handleBookingTypeChange('history')}
+          >
+            <Text
+              style={[
+                styles.bookingTypeButtonText,
+                selectedBookingType === 'history' && styles.selectedButtonText,
+              ]}
+            >
+              View History
+            </Text>
+          </TouchableOpacity>
         </View>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Select the type of booking to continue</Text>
-          <View style={styles.bookingTypeContainer}>
-            <TouchableOpacity style={[styles.bookingTypeButton, selectedBookingType === 'Travel' && styles.selectedBookingTypeButton]} onPress={() => handleBookingTypeChange('Travel')}>
-              <Text style={styles.bookingTypeText}>Travel Booking</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.bookingTypeButton, selectedBookingType === 'Carriage' && styles.selectedBookingTypeButton]} onPress={() => handleBookingTypeChange('Carriage')}>
-              <Text style={styles.bookingTypeText}>Carriage Booking</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        {selectedBookingType === 'Travel' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Select the unit of carriage</Text>
-            <View style={styles.unitSelectionContainer}>
-              <TouchableOpacity style={[styles.unitItem, selectedUnit === 'Car' && styles.selectedUnitItem]} onPress={() => handleUnitChange('Car')}>
-                <Image source={icons.caricon} style={styles.unitImage} />
-                <Text style={styles.unitText}>Car</Text>
+
+        {selectedBookingType === 'history' && (
+          <FlatList
+            data={bookingHistory}
+            keyExtractor={(item) => item.$id.toString()}
+            renderItem={({ item }) => (
+              <View style={styles.bookingItem}>
+                <Text style={styles.bookingText}>Driver: {item.Driver}</Text>
+                <Text style={styles.bookingText}>Time: {item.time}</Text>
+                <Text style={styles.bookingText}>Destination: {item.destination}</Text>
+                <Text style={styles.bookingText}>Payment Details: {item.paymentDetails}</Text>
+              </View>
+            )}
+          />
+        )}
+
+        {selectedBookingType === 'travel' && (
+
+          <>
+            <View style={styles.instructionsContainer}>
+              <Text style={styles.instructionsTitle}>Booking Instructions</Text>
+              <Text style={styles.instructionsText}>
+               1. Cancellation of booking more than 3 times will result in a refund of only 70% of the total travel amount.
+              </Text>
+              <Text style={styles.instructionsText}>
+               2. Please ensure you are present 30 minutes before the scheduled time for time keeping.
+              </Text>
+              <Text style={styles.instructionsText}>
+               3. Payment is Before Service and Transport Fee is Calculated in Price per KM.
+              </Text>
+              <Text style={styles.instructionsText}>
+               4. Ensure to Give your Driver a Rating According to the Service you are Given.
+              </Text>
+              <Text style={styles.instructionsText}>
+               5.Distance Accurancy is Measured with a 90% Accurancy from Google Maps.
+              </Text>
+
+            </View>
+            <View style={styles.unitContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.unitButton,
+                  selectedUnit === 'Car' && styles.selectedButton,
+                ]}
+                onPress={() => handleUnitChange('Car')}
+              >
+                <Image source={icons.caricon} style={styles.unitIcon} />
+                <Text
+                  style={[
+                    styles.unitButtonText,
+                    selectedUnit === 'Car' && styles.selectedButtonText,
+                  ]}
+                >
+                  Car
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.unitItem, selectedUnit === 'Motorcycle' && styles.selectedUnitItem]} onPress={() => handleUnitChange('Motorcycle')}>
-                <Image source={icons.motoricon} style={styles.unitImage} />
-                <Text style={styles.unitText}>Motorcycle</Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.unitButton,
+                  selectedUnit === 'Motorcycle' && styles.selectedButton,
+                ]}
+                onPress={() => handleUnitChange('Motorcycle')}
+              >
+                <Image source={icons.motoricon} style={styles.unitIcon} />
+                <Text
+                  style={[
+                    styles.unitButtonText,
+                    selectedUnit === 'Motorcycle' && styles.selectedButtonText,
+                  ]}
+                >
+                  Motorcycle
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.unitButton,
+                  selectedUnit === 'Van' && styles.selectedButton,
+                ]}
+                onPress={() => handleUnitChange('Van')}
+              >
+                <Image source={icons.lorryicon} style={styles.unitIcon} />
+                <Text
+                  style={[
+                    styles.unitButtonText,
+                    selectedUnit === 'Van' && styles.selectedButtonText,
+                  ]}
+                >
+                  Van
+                </Text>
               </TouchableOpacity>
             </View>
+
             {selectedUnit && (
               <>
-                <Text style={styles.sectionTitle}>Select an active driver</Text>
-                <ScrollView style={styles.driverListContainer}>
-                  <View style={styles.tableHeader}>
-                    <Text style={[styles.tableHeaderText, { flex: 2 }]}>Name</Text>
-                    <Text style={[styles.tableHeaderText, { flex: 2 }]}>Vehicle Reg Number</Text>
-                    <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Proficiency</Text>
-                    <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Success Rate</Text>
-                    <Text style={[styles.tableHeaderText, { flex: 2 }]}>Phone Number</Text>
-                  </View>
-                  {activeDrivers.map(driver => (
+                <Text style={styles.sectionTitle}>Select Active Driver</Text>
+                <ScrollView
+                  contentContainerStyle={styles.driverContainer}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                >
+                  {activeDrivers.map((driver, index) => (
                     <TouchableOpacity
-                      key={driver.id}
-                      style={[styles.driverItem, selectedDriver?.id === driver.id && styles.selectedDriverItem]}
+                      key={index}
+                      style={[
+                        styles.driverCard,
+                        selectedDriver === driver && styles.selectedDriverCard,
+                      ]}
                       onPress={() => handleDriverSelection(driver)}
                     >
-                      <Text style={[styles.driverText, { flex: 2 }]}>{driver.name}</Text>
-                      <Text style={[styles.driverText, { flex: 2 }]}>{driver.vehicleRegNumber}</Text>
-                      <Text style={[styles.driverText, { flex: 1.5 }]}>{driver.proficiency}</Text>
-                      <Text style={[styles.driverText, { flex: 1.5 }]}>{driver.successRate}</Text>
-                      <Text style={[styles.driverText, { flex: 2 }]}>{driver.phoneNumber}</Text>
+                      <Image source={icons.profile} style={styles.driverImage} />
+                      <Text style={styles.driverName}>{driver.drname}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
-                <Text style={styles.sectionTitle}>Departure Time</Text>
-                <TouchableOpacity style={styles.input} onPress={showDatePicker}>
-                  <Text>{departureTime || 'Select departure time'}</Text>
-                </TouchableOpacity>
-                <Text style={styles.sectionTitle}>Destination</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter destination"
-                  value={destination}
-                  onChangeText={setDestination}
-                />
- 
 
-                <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-                  <Text style={styles.searchButtonText}>Search</Text>
-                </TouchableOpacity>
-                {totalAmount && (
-                 <View style={styles.resultsContainer}>
-                    <View style={styles.resultRow}>
-                      <Text style={styles.resultLabel}>Departure Time:</Text>
-                      <Text style={styles.resultValue}>On {`${selectedDate.day}/${selectedDate.month}/${selectedDate.year} At ${selectedTime.hours}:${selectedTime.minutes}`}</Text>
-                    </View>
-                    <View style={styles.resultRow}>
-                      <Text style={styles.resultLabel}>Distance:</Text>
-                      <Text style={styles.resultValue}>{distance}</Text>
-                    </View>
-                    <View style={styles.resultRow}>
-                      <Text style={styles.resultLabel}>Condition:</Text>
-                      <Text style={styles.resultValue}>{condition}</Text>
-                    </View>
-                    <View style={styles.resultRow}>
-                      <Text style={styles.resultLabel}>Amount per Km:</Text>
-                      <Text style={styles.resultValue}>{amountPerKm}</Text>
-                    </View>
-                    <View style={styles.resultRow}>
-                      <Text style={styles.resultLabel}>Driver Proficiency Bonus:</Text>
-                      <Text style={styles.resultValue}>{driverProficiencyBonus}</Text>
-                    </View>
-                    <View style={styles.resultRow}>
-                      <Text style={styles.resultLabel}>Load Fee:</Text>
-                      <Text style={styles.resultValue}>{loadFee}</Text>
-                    </View>
-                    <View style={styles.resultRow}>
-                      <Text style={styles.resultLabel}>Commission:</Text>
-                      <Text style={styles.resultValue}>{commission}%</Text>
-                    </View>
-                    <View style={styles.resultRow}>
-                      <Text style={styles.resultLabel}>Total Amount to Pay:</Text>
-                      <Text style={styles.resultValue}>Shs {totalAmount}</Text>
-                    </View>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.sectionTitle}>Origin:</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter origin"
+                    value={origin}
+                    onChangeText={(text) => setOrigin(text)}
+                  />
+                </View>
 
-                  </View>
-               
-                )}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.sectionTitle}>Destination:</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter destination"
+                    value={destination}
+                    onChangeText={(text) => setDestination(text)}
+                  />
+                </View>
+
+                <View style={styles.searchButtonContainer}>
+                  <TouchableOpacity
+                    style={styles.searchButton}
+                    onPress={handleSearch}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.searchButtonText}>Calculate Fare</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.sectionTitle}>Departure Time:</Text>
+                  <TouchableOpacity
+                    style={styles.datePickerButton}
+                    onPress={showDatePicker}
+                  >
+                    <Text style={styles.datePickerButtonText}>
+                      {selectedDate.day}/{selectedDate.month}/
+                      {selectedDate.year}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
                 <DateTimePickerModal
                   isVisible={isDatePickerVisible}
-                  mode="datetime" // or "datetime" for date and time picker
+                  mode="datetime"
                   onConfirm={handleConfirm}
                   onCancel={hideDatePicker}
                 />
 
-                <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-                  <Text style={styles.submitButtonText}>Submit</Text>
-                </TouchableOpacity>
+                <View style={styles.fareContainer}>
+                  <Text style={styles.label}>Distance:</Text>
+                  <Text style={styles.value}>{distance}</Text>
+                </View>
+
+                <View style={styles.fareContainer}>
+                  <Text style={styles.label}>Amount per Km:</Text>
+                  <Text style={styles.value}>{amountPerKm}</Text>
+                </View>
+
+                <View style={styles.fareContainer}>
+                  <Text style={styles.label}>Driver Proficiency Bonus:</Text>
+                  <Text style={styles.value}>{driverProficiencyBonus}</Text>
+                </View>
+
+                <View style={styles.fareContainer}>
+                  <Text style={styles.label}>Commission:</Text>
+                  <Text style={styles.value}>{commission}</Text>
+                </View>
+
+                <View style={styles.fareContainer}>
+                  <Text style={styles.label}>Total Amount:</Text>
+                  <Text style={styles.value}>{totalAmount}</Text>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.sectionTitle}>Phone Number (2547..)</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter phone number"
+                    value={phoneNumber}
+                    onChangeText={(text) => setPhoneNumber(text)}
+                  />
+                </View>
+
+                <View style={styles.submitButtonContainer}>
+                  <TouchableOpacity
+                    style={styles.submitButton}
+                    onPress={handleSubmit}
+                  >
+                    <Text style={styles.submitButtonText}>Book Now</Text>
+                  </TouchableOpacity>
+                </View>
               </>
             )}
-          </View>
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -285,241 +494,206 @@ const Booking = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f5f5f5',
+    width: '100%',
+    alignItems:'center',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    marginBottom: 10,
-    backgroundColor: '#161622',
-  },
-  headerText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  resultsContainer: {
-    marginTop: 20,
-    paddingHorizontal: 16,
-  },
-  resultRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  resultLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'black',
-    width: '50%', // Adjust width as needed
-  },
-  resultValue: {
-    fontSize: 16,
-    color: 'black',
-    textAlign: 'right',
-    width: '50%', // Adjust width as needed
-  },
-  sectionHeader: {
-    marginHorizontal: 16,
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: 'black',
-    textAlign: 'center',
-  },
+  
   bookingTypeContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  bookingTypeButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginHorizontal: 10,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal:0,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
     backgroundColor: '#161622',
+    borderRadius: 1,
+    width: '100%',
   },
-  selectedBookingTypeButton: {
-    backgroundColor: '#FF9C01',
+
+  bookingTypeButton: {
+    padding: 10,
+    backgroundColor: '#161622',
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#ccc',
   },
-  bookingTypeText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  selectedButton: {
+    backgroundColor: '#007bff',
+    borderColor: '#007bff',
+  },
+  bookingTypeButtonText: {
+    color: 'orange',
+  },
+  selectedButtonText: {
+    color: 'orange',
+  },
+  unitContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 10,
+    marginHorizontal:0,
+  },
+  unitButton: {
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#161622',
+  },
+  unitIcon: {
+    width: 50,
+    height: 40,
+    marginBottom: 5,
+  },
+  unitButtonText: {
+    color: 'orange',
+  },
+  selectedButton: {
+    backgroundColor: 'orange',
+    borderColor: '#161622',
+  },
+  selectedButtonText: {
     color: '#ffffff',
   },
-  unitSelectionContainer: {
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginVertical: 10,
+    textAlign:'center',
+  },
+  driverContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    marginLeft:20,
+    marginRight:20,
     marginBottom: 20,
+  },
+  driverCard: {
     alignItems: 'center',
-    marginLeft: 20,
+    padding: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    borderWidth: 3,
+    borderColor: '#161622',
+    marginRight: 20,
+    marginLeft:10,
   },
-  unitItem: {
-    alignItems: 'center',
-    marginHorizontal: 20,
+  selectedDriverCard: {
+    borderColor: 'orange',
   },
-  selectedUnitItem: {
-    borderColor: '#ffffff',
-    borderWidth: 2,
-    borderRadius: 8,
-  },
-  unitImage: {
+  driverImage: {
     width: 50,
     height: 50,
+    marginBottom: 5,
   },
-  unitText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'black',
-    marginTop: 5,
-  },
-  driverListContainer: {
-    flex: 1,
-    marginBottom: 20,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-  tableHeaderText: {
+  driverName: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: 'black',
-    textAlign: 'center',
+    color: '#161622',
   },
-  driverItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+  inputContainer: {
+    marginVertical: 10,
+    marginEnd:20,
+    marginLeft:20,
+    borderRadius:50,
   },
-  selectedDriverItem: {
-    backgroundColor: '#FF9C01',
-  },
-  driverText: {
+  label: {
     fontSize: 14,
-    color: 'black',
-    textAlign: 'center',
+    marginBottom: 5,
   },
   input: {
-    height: 40,
-    borderColor: 'black',
+    backgroundColor: '#ffffff',
+    padding: 10,
+    borderRadius: 20,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    color: 'black',
-    marginBottom: 10,
+    borderColor: '#ccc',
+  },
+  searchButtonContainer: {
+    marginVertical: 20,
+    alignItems: 'center',
   },
   searchButton: {
-    backgroundColor: '#161622',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 10,
+    padding: 15,
+    backgroundColor: 'orange',
+    borderRadius: 20,
   },
   searchButtonText: {
+    color: '#ffffff',
     fontSize: 16,
+  },
+  datePickerButton: {
+    padding: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    alignItems: 'center',
+  },
+  datePickerButtonText: {
+    color: '#161622',
+  },
+  fareContainer: {
+    flexDirection: 'row',
+    paddingEnd:10,
+    paddingLeft:20,
+    justifyContent: 'space-between',
+    marginVertical: 5,
+  },
+  label: {
+    fontSize: 16,
+  },
+  value: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: 'white',
   },
-  destinationDetailsContainer: {
-    marginTop: 20,
-    paddingHorizontal: 16,
+  submitButtonContainer: {
+    marginVertical: 20,
+    alignItems: 'center',
   },
-  destinationDetailTitle: {
+  instructionsContainer: {
+    marginTop:20,
+    backgroundColor: 'orange',
+    padding: 12,
+    borderRadius: 8,
+    border:'green',
+    borderColor:'green',
+    marginLeft:20,
+    marginRight:20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 20,
+  },
+  instructionsTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: 'black',
   },
-  destinationDetailTable: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-  },
-  destinationDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-  },
-  destinationDetailLabel: {
-    flex: 1,
+  instructionsText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: 'black',
-  },
-  destinationDetailText: {
-    flex: 2,
-    fontSize: 16,
-    color: 'black',
-  },
-  totalLabel: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'black',
-  },
-  totalText: {
-    flex: 2,
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'black',
+    marginBottom: 5,
   },
   submitButton: {
-    backgroundColor: '#FF9C01',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 20,
-    marginHorizontal: 20,
-    marginBottom:20,
+    padding: 15,
+    backgroundColor: 'orange',
+    borderRadius: 20,
   },
   submitButtonText: {
     color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  dateTimeContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
-  dateTimeTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: 'black',
-  },
-  datePicker: {
-    marginBottom: 20,
-  },
-  timePickerButton: {
-    backgroundColor: '#161622',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  timePickerText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: 'white',
+  },
+  bookingItem: {
+    padding: 15,
+    backgroundColor: '#ffffff',
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    marginVertical: 5,
+  },
+  bookingText: {
+    fontSize: 14,
   },
 });
 

@@ -8,6 +8,7 @@ import FormField from '../../components/FormField';
 import CustomButton from "../../components/CustomButton";
 import { Link } from 'expo-router';
 import { signIn } from '../../lib/appwrite';
+import { Alert } from 'react-native';
 
 const SignIn = () => {
   const [form, setForm] = useState({

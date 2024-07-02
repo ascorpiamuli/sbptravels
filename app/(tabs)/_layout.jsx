@@ -66,21 +66,6 @@ const TabsLayout = () => {
         }}
       />
       <Tabs.Screen
-        name='service'
-        options={{
-          title: 'Services',
-          headerShown: false,
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              icon={icons.customer}
-              color={color}
-              name="Services"
-              focused={focused}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name='contact'
         options={{
           title: 'Contact Us',
