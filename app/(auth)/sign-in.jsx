@@ -19,7 +19,7 @@ const SignIn = () => {
   const submit = async () => {
     setIsSubmitting(true);
     try {
-      await signIn(form.email);
+      await signIn(form.email,form.password);
       router.replace('/home')
     } catch (error) {
       Alert.alert('Error',error.message)

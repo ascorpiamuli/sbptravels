@@ -1,30 +1,45 @@
 import React, { useState } from 'react';
-import { StyleSheet, FlatList, View, Image, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, Image, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from "expo-status-bar";
-import { images, icons } from '../../constants';
-import { Alert } from 'react-native';
+import { images } from '../../constants';
+import StarRating from '../../components/StarRating'; // Adjust the path as necessary
+import { Ionicons } from '@expo/vector-icons'; // Ensure you have installed @expo/vector-icons
 
 const Contact = () => {
   const [notifications, setNotifications] = useState({ car: 2, motor: 3, lorry: 1 }); // Example notification counts
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [rating, setRating] = useState(0);
+  const [expandedQuestion, setExpandedQuestion] = useState(null);
+
+  const faqData = [
+    { question: "What is SBP Treks?", answer: "SBP Treks is a company that provides Vehicle Booking and Goods Carrying Services." },
+    { question: "How can I contact you?", answer: "You can contact us via email at info@sbptreks.com or phone at +254795751700." },
+    { question: "What are your operating hours?", answer: "Our operating hours are Monday to Friday, 9 AM to 6 PM." },
+    
+    // Add more FAQs as needed
+  ];
 
   const handleSend = () => {
-    if (!name || !email || !message) {
-      Alert.alert('Error', 'Please fill out all fields.');
+    if (!name || !email || rating === 0) {
+      Alert.alert('Error', 'Please fill out all fields and provide a rating.');
       return;
     }
 
     // Here, you would typically send the contact information to your server
     // For this example, we'll just show an alert
-    Alert.alert('Success', 'Your message has been sent.');
+    Alert.alert('Success', 'Thank you. SBP Treks will get back to you shortly.');
     setName('');
     setEmail('');
     setMessage('');
+    setRating(0);
   }
 
+  const toggleExpandQuestion = (index) => {
+    setExpandedQuestion(expandedQuestion === index ? null : index);
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -50,7 +65,7 @@ const Contact = () => {
         </View>
         <View style={styles.contactContainer}>
           <Text style={styles.contactTitle}>Contact Us</Text>
-          <Text style={styles.contactText}>Company Address:Po Box 1413,Kitui,Kenya</Text>
+          <Text style={styles.contactText}>Company Address: Po Box 1413, Kitui, Kenya</Text>
           <Text style={styles.contactText}>Phone: +254795751700</Text>
           <Text style={styles.contactText}>Email: info@sbptreks.com</Text>
           <Text style={styles.contactText}>Operating Hours: Mon - Fri, 9 AM - 6 PM</Text>
@@ -74,10 +89,32 @@ const Contact = () => {
             onChangeText={(text) => setMessage(text)}
             multiline
           />
+          <Text style={styles.contactTitle}>How do You Rate our Application?</Text>
+
+          <StarRating onRatingChange={(newRating) => setRating(newRating)} />
 
           <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-            <Text style={styles.sendButtonText}>Send Message</Text>
+            <Text style={styles.sendButtonText}>Submit</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.faqContainer}>
+          <Text style={styles.contactTitle}>Frequently Asked Questions</Text>
+          {faqData.map((faq, index) => (
+            <View key={index} style={styles.faqItem}>
+              <TouchableOpacity onPress={() => toggleExpandQuestion(index)} style={styles.faqQuestionContainer}>
+                <Text style={styles.faqQuestion}>{faq.question}</Text>
+                <Ionicons 
+                  name={expandedQuestion === index ? 'chevron-up-outline' : 'chevron-down-outline'} 
+                  size={20} 
+                  color="#333" 
+                />
+              </TouchableOpacity>
+              {expandedQuestion === index && (
+                <Text style={styles.faqAnswer}>{faq.answer}</Text>
+              )}
+            </View>
+          ))}
         </View>
       </ScrollView>
 
@@ -96,7 +133,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   contactContainer: {
-    marginTop:60,
+    marginTop: 20,
     backgroundColor: '#ffffff',
     padding: 16,
     borderRadius: 8,
@@ -105,8 +142,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
-    marginLeft:20,
-    marginRight:20,
+    marginLeft: 20,
+    marginRight: 20,
   },
   contactTitle: {
     fontSize: 24,
@@ -137,10 +174,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     textAlign: 'center',
     fontSize: 16,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#ffff',
   },
   header: {
     flexDirection: 'row',
@@ -192,7 +225,41 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 10,
   },
-  
+  faqContainer: {
+    marginTop: 30,
+    marginLeft: 20,
+    marginRight: 20,
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  faqItem: {
+    marginBottom: 10,
+  },
+  faqQuestionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#cccccc',
+  },
+  faqQuestion: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  faqAnswer: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 5,
+    paddingLeft: 10,
+  },
 });
 
 export default Contact;
