@@ -5,7 +5,7 @@ import { Redirect, useRouter } from "expo-router"; // Import useRouter
 import { Video } from "expo-av";
 import { images } from "../constants";
 import CustomButton from "../components/CustomButton";
-import { StyleSheet } from 'react-native';
+import { StyleSheet } from "react-native";
 import { useGlobalContext } from "../context/GlobalProvider";
 
 export default function App() {
@@ -13,19 +13,22 @@ export default function App() {
   const router = useRouter(); // Initialize router
 
   if (!isLoading && isLoggedIn) {
-    return <Redirect href="/home"/>
+    return <Redirect href="/home" />;
   }
 
   const handleButtonPress = () => {
-    router.push('/sign-in'); // Navigate to sign-in
+    router.push("/sign-in"); // Navigate to sign-in
+  };
+  const handleButtonPressDriver = () => {
+    router.push("/dri-sign-in"); //Navigate to driver's portal sign in
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#161622' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#161622" }}>
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.container}>
           <Video
-            source={require('../assets/videos/logo-presentation.mp4')}
+            source={require("../assets/videos/logo-presentation.mp4")}
             rate={0.7}
             volume={1.0}
             isMuted={false}
@@ -36,7 +39,8 @@ export default function App() {
           />
           <View style={styles.textView}>
             <Text style={styles.mainText}>
-              <Text style={styles.highlightText}> Your Gateway </Text> to Luxurious Journeys.
+              <Text style={styles.highlightText}> Your Gateway </Text> to
+              Luxurious Journeys.
             </Text>
             <Image
               source={images.path}
@@ -45,16 +49,17 @@ export default function App() {
             />
           </View>
           <Text style={styles.descriptionText}>
-            Discover the world with the precision and luxury that only Scorpio Travels can provide.
+            Discover the world with the precision and luxury that only Scorpio
+            Travels can provide.
           </Text>
-          <CustomButton 
+          <CustomButton
             title="Client Portal"
             handlePress={handleButtonPress}
             containerStyles={styles.button}
           />
-          <CustomButton 
+          <CustomButton
             title="Driver Portal"
-            handlePress={handleButtonPress}
+            handlePress={handleButtonPressDriver}
             containerStyles={styles.button}
           />
         </View>
@@ -67,13 +72,13 @@ export default function App() {
 const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   container: {
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 16,
   },
   video: {
@@ -81,35 +86,35 @@ const styles = StyleSheet.create({
     height: 240,
   },
   textView: {
-    position: 'relative',
+    position: "relative",
     marginTop: 68,
-    alignItems: 'center',
+    alignItems: "center",
   },
   mainText: {
     fontSize: 24,
-    color: '#ffffff',
-    fontWeight: 'bold',
-    textAlign: 'center',
+    color: "#ffffff",
+    fontWeight: "bold",
+    textAlign: "center",
   },
   highlightText: {
-    color: '#f0ad4e',
+    color: "#f0ad4e",
   },
   image: {
     width: 154,
     height: 15,
-    position: 'absolute',
+    position: "absolute",
     bottom: -12,
     left: 0,
   },
   descriptionText: {
     fontSize: 14,
-    color: '#d1d1d1',
+    color: "#d1d1d1",
     marginTop: 12,
-    textAlign: 'center',
+    textAlign: "center",
     paddingHorizontal: 16,
   },
   button: {
-    width: '100%',
+    width: "100%",
     marginTop: 28,
   },
 });

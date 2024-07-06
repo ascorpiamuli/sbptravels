@@ -36,7 +36,7 @@ const Profile = () => {
         setEmail(currUser.email);
         setPhone(currUser.phone);
       } catch (error) {
-        Alert.alert("No User Found", error.message);
+        // Alert.alert("No User Found", error.message);
       }
     };
 
